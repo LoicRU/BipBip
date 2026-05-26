@@ -1,0 +1,30 @@
+
+*.pdf
+
+node_modules/
+
+.env
+.env.local
+*.env
+
+dist/
+frontend/dist/
+frontend/.vite/
+coverage/
+
+# garder exemples pour l'équipe
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# ⚠️ NE PAS ignorer prisma
+# prisma ❌ à supprimer
+.DS_Store
+*.log
+
+backend_api_implementation_guide.md
+
+*.env
+*venv
+__pycache__/
+*.pyc
