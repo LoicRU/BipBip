@@ -5,13 +5,13 @@ WORKDIR /app
 RUN apk add --no-cache openssl
 
 COPY package*.json ./
+
 RUN npm ci
 
-COPY prisma ./prisma
-RUN npx prisma generate
+COPY . .
 
-COPY src ./src
+RUN npx prisma generate
 
 EXPOSE 8000
 
-CMD ["npm", "run", "start"]
+CMD ["npm", "start"]
