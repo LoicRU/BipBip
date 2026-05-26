@@ -236,6 +236,93 @@ export function parseCvContent(content) {
   return { header, sections };
 }
 
+
+function splitCvLines(value) {
+  return String(value || "")
+    .split(/\r?\n|•|;/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function splitSkillTags(value) {
+  return String(value || "")
+    .split(/,|\r?\n|•|;/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function getInitials(name) {
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) return "CV";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function CvSidebarBlock({ title, children }) {
+  if (!children) return null;
+
+  return (
+    <section className="mt-7 first:mt-0">
+      <h3 className="text-lg font-bold text-white mb-3 tracking-tight">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function CvBulletList({ items }) {
+  if (!items || items.length === 0) return null;
+
+  return (
+    <ul className="space-y-2 text-sm leading-snug">
+      {items.map((item, index) => (
+        <li key={`${item}-${index}`} className="font-medium text-slate-100">
+          {item}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function CvMainSection({ title, children }) {
+  if (!children) return null;
+
+  return (
+    <section className="mb-7 last:mb-0">
+      <h3 className="text-xl font-extrabold text-sky-500 mb-3">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function CvTimelineText({ value }) {
+  const lines = splitCvLines(value);
+
+  if (lines.length === 0) return null;
+
+  return (
+    <div className="relative border-l-2 border-slate-900/80 pl-6 space-y-4">
+      {lines.map((line, index) => {
+        const [strongPart, ...rest] = line.split(" - ");
+        const detail = rest.join(" - ");
+
+        return (
+          <article key={`${line}-${index}`} className="relative">
+            <span className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-slate-900" />
+            <p className="text-sm font-bold text-slate-900">{strongPart}</p>
+            {detail ? (
+              <p className="mt-1 text-sm text-slate-600 leading-relaxed">{detail}</p>
+            ) : null}
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 export function AIAssistant() {
   const [activeTab, setActiveTab] = useState("cv");
   const [generating, setGenerating] = useState(false);
@@ -295,11 +382,13 @@ export function AIAssistant() {
 
   const updateCvField = (field, value) => {
     setCvData((prev) => ({ ...prev, [field]: value }));
+    setGeneratedContent((prev) => ({ ...prev, cv: "" }));
     clearFieldError(field);
   };
 
   const updateLetterField = (field, value) => {
     setLetterData((prev) => ({ ...prev, [field]: value }));
+    setGeneratedContent((prev) => ({ ...prev, letter: "" }));
     clearFieldError(field);
   };
 
@@ -868,139 +957,104 @@ export function AIAssistant() {
             )}
           </div>
 
-          {activeTab === "cv" ? (
-            <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-700 max-h-175 overflow-y-auto">
-              <div className="max-w-full mx-auto text-slate-900 dark:text-slate-100">
-                <header className="mb-5">
-                  <h1 className="text-2xl font-bold">
-                    {cvData.name || "Nom complet"}
-                  </h1>
-
-                  {cvData.title && (
-                    <p className="text-sm text-slate-600 dark:text-slate-300">
-                      {cvData.title}
-                    </p>
-                  )}
-
-                  <div className="mt-3 text-sm text-slate-600 dark:text-slate-300 space-y-1">
-                    {cvData.email && <p>{cvData.email}</p>}
-                    {cvData.phone && <p>{cvData.phone}</p>}
-                    {cvData.city && <p>{cvData.city}</p>}
-                    {cvData.mobility && <p>Mobilité : {cvData.mobility}</p>}
-                    {cvData.github && <p>GitHub : {cvData.github}</p>}
-                    {cvData.linkedin && <p>LinkedIn : {cvData.linkedin}</p>}
+          {activeTab === "cv" && hasGenerated ? (
+            <div className="bg-slate-100 dark:bg-slate-950 rounded-xl p-4 border border-gray-200 dark:border-gray-700 max-h-175 overflow-y-auto">
+              <div className="mx-auto w-full max-w-[760px] min-h-[980px] bg-white shadow-2xl text-slate-900 overflow-hidden grid grid-cols-[230px_1fr]">
+                <aside className="bg-[#303030] text-slate-100 px-6 py-7">
+                  <div className="mx-auto mb-6 flex h-28 w-28 items-center justify-center rounded-full bg-slate-200 text-[#303030] text-3xl font-black ring-4 ring-white/10">
+                    {getInitials(cvData.name)}
                   </div>
-                </header>
 
-                {cvData.summary && (
-                  <section className="mb-5">
-                    <div className="border-t border-gray-300 dark:border-gray-600 my-4" />
-                    <h3 className="text-sm font-semibold uppercase mb-2">
-                      Profil professionnel
-                    </h3>
-                    <p className="whitespace-pre-line text-sm leading-relaxed">
-                      {cvData.summary}
-                    </p>
-                  </section>
-                )}
+                  <div className="space-y-3 text-sm text-slate-200">
+                    {cvData.email && <p>✉ {cvData.email}</p>}
+                    {cvData.city && <p>⌂ {cvData.city}</p>}
+                    {cvData.mobility && <p>⚑ {cvData.mobility}</p>}
+                    {cvData.phone && <p>☎ {cvData.phone}</p>}
+                    {cvData.linkedin && <p>in {cvData.linkedin}</p>}
+                    {cvData.github && <p>GitHub {cvData.github}</p>}
+                  </div>
 
-                {cvData.experience && (
-                  <section className="mb-5">
-                    <div className="border-t border-gray-300 dark:border-gray-600 my-4" />
-                    <h3 className="text-sm font-semibold uppercase mb-2">
-                      Expériences professionnelles
-                    </h3>
-                    <p className="whitespace-pre-line text-sm leading-relaxed">
-                      {cvData.experience}
-                    </p>
-                  </section>
-                )}
+                  <CvSidebarBlock title="Langues">
+                    <CvBulletList items={splitCvLines(cvData.languages)} />
+                  </CvSidebarBlock>
 
-                {cvData.projects && (
-                  <section className="mb-5">
-                    <div className="border-t border-gray-300 dark:border-gray-600 my-4" />
-                    <h3 className="text-sm font-semibold uppercase mb-2">
-                      Projets informatiques
-                    </h3>
-                    <p className="whitespace-pre-line text-sm leading-relaxed">
-                      {cvData.projects}
-                    </p>
-                  </section>
-                )}
+                  <CvSidebarBlock title="Atouts">
+                    <CvBulletList items={splitCvLines(cvData.softSkills)} />
+                  </CvSidebarBlock>
 
-                {cvData.skills && (
-                  <section className="mb-5">
-                    <div className="border-t border-gray-300 dark:border-gray-600 my-4" />
-                    <h3 className="text-sm font-semibold uppercase mb-2">
-                      Compétences
-                    </h3>
-                    <p className="whitespace-pre-line text-sm leading-relaxed">
-                      {cvData.skills}
-                    </p>
-                  </section>
-                )}
+                  <CvSidebarBlock title="Centres d'intérêt">
+                    <CvBulletList items={splitCvLines(cvData.interests)} />
+                  </CvSidebarBlock>
+                </aside>
 
-                {cvData.education && (
-                  <section className="mb-5">
-                    <div className="border-t border-gray-300 dark:border-gray-600 my-4" />
-                    <h3 className="text-sm font-semibold uppercase mb-2">
-                      Formation
-                    </h3>
-                    <p className="whitespace-pre-line text-sm leading-relaxed">
-                      {cvData.education}
-                    </p>
-                  </section>
-                )}
+                <main className="px-8 py-8">
+                  <header className="mb-7">
+                    <h1 className="text-3xl font-black tracking-tight text-slate-950">
+                      {cvData.name || "Nom complet"}
+                    </h1>
 
-                {(cvData.languages || cvData.softSkills || cvData.interests) && (
-                  <section className="mb-5">
-                    <div className="border-t border-gray-300 dark:border-gray-600 my-4" />
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      {cvData.languages && (
-                        <div>
-                          <h3 className="font-semibold uppercase mb-2">Langues</h3>
-                          <p className="whitespace-pre-line">{cvData.languages}</p>
-                        </div>
-                      )}
-
-                      {cvData.softSkills && (
-                        <div>
-                          <h3 className="font-semibold uppercase mb-2">Atouts</h3>
-                          <p className="whitespace-pre-line">{cvData.softSkills}</p>
-                        </div>
-                      )}
-
-                      {cvData.interests && (
-                        <div>
-                          <h3 className="font-semibold uppercase mb-2">Centres d'intérêt</h3>
-                          <p className="whitespace-pre-line">{cvData.interests}</p>
-                        </div>
-                      )}
-                    </div>
-                  </section>
-                )}
-
-                {!cvData.name &&
-                  !cvData.title &&
-                  !cvData.summary &&
-                  !cvData.experience &&
-                  !cvData.projects &&
-                  !cvData.skills &&
-                  !cvData.education && (
-                    <div className="flex flex-col items-center justify-center h-175 text-center">
-                      <div className="p-6 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-6">
-                        <Bot className="w-16 h-16 text-blue-600 dark:text-blue-400" />
-                      </div>
-
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                        Prêt à créer votre CV ?
-                      </h3>
-
-                      <p className="text-gray-600 dark:text-gray-400 max-w-md">
-                        Remplissez le formulaire pour voir l'aperçu complet de votre CV.
+                    {cvData.title && (
+                      <p className="mt-2 text-base font-semibold text-slate-700">
+                        {cvData.title}
                       </p>
-                    </div>
+                    )}
+
+                    {cvData.summary && (
+                      <p className="mt-5 text-sm leading-relaxed text-slate-700 whitespace-pre-line">
+                        {cvData.summary}
+                      </p>
+                    )}
+                  </header>
+
+                  <CvMainSection title="Diplômes et Formations">
+                    <CvTimelineText value={cvData.education} />
+                  </CvMainSection>
+
+                  <CvMainSection title="Expériences professionnelles">
+                    <CvTimelineText value={cvData.experience} />
+                  </CvMainSection>
+
+                  <CvMainSection title="Projet Informatique">
+                    <CvTimelineText value={cvData.projects} />
+                  </CvMainSection>
+
+                  {cvData.skills && (
+                    <CvMainSection title="Compétences Informatique">
+                      <div className="flex flex-wrap gap-2">
+                        {splitSkillTags(cvData.skills).map((skill, index) => (
+                          <span
+                            key={`${skill}-${index}`}
+                            className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-sm font-semibold text-slate-800"
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </CvMainSection>
                   )}
+
+                  {!cvData.name &&
+                    !cvData.title &&
+                    !cvData.summary &&
+                    !cvData.experience &&
+                    !cvData.projects &&
+                    !cvData.skills &&
+                    !cvData.education && (
+                      <div className="flex flex-col items-center justify-center h-175 text-center">
+                        <div className="p-6 bg-blue-100 rounded-full mb-6">
+                          <Bot className="w-16 h-16 text-blue-600" />
+                        </div>
+
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">
+                          Prêt à créer votre CV ?
+                        </h3>
+
+                        <p className="text-gray-600 max-w-md">
+                          Remplissez le formulaire pour voir un aperçu proche du modèle fourni.
+                        </p>
+                      </div>
+                    )}
+                </main>
               </div>
             </div>
           ) : hasGenerated ? (
