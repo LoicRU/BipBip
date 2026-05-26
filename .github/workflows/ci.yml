@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Prepare backend env for tests
+        working-directory: backend
+        run: |
+          # copy backend/.env.example to .env if present
+          if [ -f .env.example ]; then
+            cp .env.example .env
+          fi
+          # ensure JWT_SECRET is set for tests
+          echo "JWT_SECRET=ci_test_secret" >> .env
+      - name: Check backend syntax
+        run: node --check backend/src/server.js
+      - name: Run backend tests
+        working-directory: backend
+        run: npm test
+
+  frontend-build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm test
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+  docker-build:
+    runs-on: ubuntu-22.04
+    needs: [backend-tests, frontend-build]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare CI environment
+        run: |
+          cp .env.example .env
+          {
+            echo "JWT_SECRET=ci_test_secret"
+            echo "API_KEY="
+            echo "API_URL=https://epi-api.welovedevs.com"
+          } >> .env
+      - name: Validate docker compose
+        run: docker compose config
+      - name: Build Docker images
+        run: docker compose build
+
+  api-smoke-tests:
+    runs-on: ubuntu-22.04
+    needs: docker-build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare CI environment
+        run: |
+          cp .env.example .env
+          {
+            echo "JWT_SECRET=ci_test_secret"
+            echo "API_KEY="
+            echo "API_URL=https://epi-api.welovedevs.com"
+          } >> .env
+      - name: Start services
+        run: docker compose up -d
+      - name: Wait for backend to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/health > /dev/null; then
+              echo "Backend ready after $((i * 2)) seconds"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend did not become ready in time"
+          docker compose logs backend --tail=100
+          exit 1
+      - name: Test health endpoint
+        run: curl -fsS http://localhost:8000/health
+      - name: Test offers endpoint
+        run: curl -fsS http://localhost:8000/api/offers
+      - name: Stop services
+        if: always()
+        run: docker compose down -v
